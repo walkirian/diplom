@@ -1,0 +1,414 @@
+\section{Рабочий проект}
+
+Клиентская часть программно-информационной системы <<Fitness Life>> реализована в каталоге \texttt{ДИПЛОМ 2} репозитория проекта. Ниже приведена спецификация основных модулей браузерного приложения, порядок сборки и результаты системного тестирования пользовательских сценариев.
+
+\subsection{Состав клиентской подсистемы}
+
+В разработке использованы следующие модули и файлы клиентской части:
+\begin{itemize}
+	\item \texttt{213223232.html} -- единая HTML-страница с корневыми контейнерами authRoot и appRoot;
+	\item \texttt{css/styles.css} -- оформление и адаптивная вёрстка;
+	\item \texttt{js/auth.js} -- аутентификация, профиль на сервере, синхронизация localStorage;
+	\item \texttt{js/app.js} -- тренировочный интерфейс, планы, графики Chart.js;
+	\item \texttt{modules/profile.module.js}, \texttt{nutrition.module.js}, \texttt{psychology.module.js}, \texttt{social.module.js}, \texttt{avatar.module.js} -- предметные разделы;
+	\item \texttt{data/mental-advice.json} -- справочник советов раздела <<Поддержка>>;
+	\item \texttt{js/vendor/chart.umd.min.js} -- локальная копия Chart.js.
+\end{itemize}
+
+Состав файлов клиентской части и их назначение приведены в таблице~\ref{tab:rp-files}.
+
+\begin{xltabular}{\textwidth}{|p{4.6cm}|X|}
+	\caption{Файлы клиентской подсистемы (каталог ДИПЛОМ 2)\label{tab:rp-files}}\\
+	\hline \centrow Файл & \centrow Назначение \\ \hline
+	\endfirsthead
+	\continuecaption{Продолжение таблицы \ref{tab:rp-files}}
+	\centrow Файл & \centrow Назначение \\ \hline
+	\finishhead
+	213223232.html & Разметка авторизации, вкладок, модальных окон, точек монтирования модулей \\ \hline
+	css/styles.css & Стили каркаса, вкладок, карточек, форм, тёмной темы \\ \hline
+	js/auth.js & Объект AppAuth: вход, регистрация, JWT, гидратация и синхронизация хранилища \\ \hline
+	js/app.js & Планы, упражнения, тренировка, графики, модальные диалоги \\ \hline
+	profile.module.js & Профиль, фото, подписки, переключение темы \\ \hline
+	nutrition.module.js & Дневник питания, продукты, КБЖУ, календарь дня \\ \hline
+	psychology.module.js & Советы, чекин, календарь настроения \\ \hline
+	social.module.js & Лента, комментарии, лайки, реакции, поиск \\ \hline
+	avatar.module.js & SVG-персонаж, уровни, начисление опыта \\ \hline
+	data/mental-advice.json & Тексты советов для блока <<Совет дня>> \\ \hline
+\end{xltabular}
+
+\subsection{Модуль auth.js}
+
+Модуль auth.js инкапсулирует объект AppAuth и отвечает за отображение экрана входа, обмен с REST API аутентификации и профиля, а также за перехват операций localStorage после успешного входа. Все именованные методы объекта AppAuth представлены в таблице~\ref{tab:rp-auth}.
+
+\begin{xltabular}{\textwidth}{|P{4.4cm}|P{3.4cm}|X|}
+	\caption{Методы объекта AppAuth (файл auth.js)\label{tab:rp-auth}}\\
+	\hline \centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\endfirsthead
+	\continuecaption{Продолжение таблицы \ref{tab:rp-auth}}
+	\centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\finishhead
+	\codeid{request} & \codeid{path, options} & HTTP-запрос к API с заголовком Authorization при наличии токена \\ \hline
+	\codeid{setAuth} & \codeid{token, user} & Сохранение JWT и сведений о пользователе в памяти и localStorage \\ \hline
+	\codeid{normalizeProfile} & \codeid{profile} & Приведение профиля с сервера к структуре, используемой клиентом \\ \hline
+	\codeid{clearAuth} & Аргументов нет & Очистка сессии и удаление ключей авторизации \\ \hline
+	\codeid{isAuthorized} & Аргументов нет & Проверка наличия действующей сессии \\ \hline
+	\codeid{hydrateStorageFromServer} & Аргументов нет & Очистка локальных ключей и загрузка user\_storage с сервера \\ \hline
+	\codeid{enableStorageSync} & Аргументов нет & Перехват setItem/removeItem для синхронизации с PUT/DELETE /api/storage \\ \hline
+	\codeid{showAuthScreen} & Аргументов нет & Отрисовка карточки входа и регистрации в authRoot \\ \hline
+	\codeid{showApp} & \codeid{options} & Показ appRoot и запуск основного приложения \\ \hline
+	\codeid{finishAuthorized} & \codeid{reloadAfter, enterAnimation} & Завершение входа: профиль, гидратация, разблокировка app \\ \hline
+	\codeid{init} & Аргументов нет & Проверка токена при загрузке страницы, выбор auth или app \\ \hline
+	\codeid{fetchProfile} & Аргументов нет & GET /api/profile, нормализация полей профиля \\ \hline
+	\codeid{updateProfile} & \codeid{payload} & PUT /api/profile, обновление данных пользователя \\ \hline
+\end{xltabular}
+
+\subsection{Модуль app.js}
+
+Модуль app.js содержит функцию startMainTrainingApp и логику вкладки <<Тренировки>>: каталог EXERCISES\_BY\_MUSCLE, шаблоны TRAINING\_TEMPLATES, работу с ключами trainingPlans\_v3 и trainingWorkouts\_v4, построение графиков и модальные окна. Именованные функции модуля приведены в таблице~\ref{tab:rp-app}.
+
+\begin{xltabular}{\textwidth}{|P{4.4cm}|P{3.4cm}|X|}
+	\caption{Ключевые функции модуля app.js\label{tab:rp-app}}\\
+	\hline \centrow Функция / блок & \centrow Контекст & \centrow Описание \\ \hline
+	\endfirsthead
+	\continuecaption{Продолжение таблицы \ref{tab:rp-app}}
+	\centrow Функция / блок & \centrow Контекст & \centrow Описание \\ \hline
+	\finishhead
+	\codeid{startMainTrainingApp} & инициализация & Монтирование модулей в контейнеры, привязка слушателя app:avatar-photo-updated \\ \hline
+	\codeid{uid} & служебная функция & Генерация локального идентификатора объекта \\ \hline
+	\codeid{ensureChartJsLoaded} & графики & Проверка или подключение локальной копии Chart.js \\ \hline
+	\codeid{loadPlans} / \codeid{savePlans} & планы & Чтение и запись структуры планов из localStorage \\ \hline
+	\codeid{loadWorkouts} / \codeid{saveWorkouts} & журнал & История выполненных тренировок и подходов \\ \hline
+	\codeid{loadLastSetByExercise} / \codeid{saveLastSetByExercise} & журнал & Хранение последних рабочих весов и повторений по упражнениям \\ \hline
+	\codeid{normalizeExerciseKey} & упражнения & Получение стабильного ключа упражнения по названию \\ \hline
+	\codeid{getLastSetForExercise} / \codeid{rememberLastSetForExercise} & упражнения & Подстановка и сохранение последнего выполненного подхода \\ \hline
+	\codeid{getWorkoutsForCurrentPlan} / \codeid{saveWorkoutsForCurrentPlan} & журнал & Выборка и сохранение тренировок текущего плана \\ \hline
+	\codeid{getStartOfWeek} / \codeid{isInCurrentWeek} & даты & Расчёт недельного периода для аналитики нагрузки \\ \hline
+	\codeid{getExerciseNameSuggestions} & поиск & Формирование списка названий упражнений для подсказок \\ \hline
+	\codeid{escapeHtml} & безопасность вывода & Экранирование пользовательского текста перед вставкой в DOM \\ \hline
+	\codeid{getCurrentPlan} / \codeid{getCurrentDay} & состояние & Получение выбранного плана и выбранного тренировочного дня \\ \hline
+	\codeid{applyTheme} & интерфейс & Применение светлой или тёмной темы приложения \\ \hline
+	\codeid{openModal} / \codeid{closeModal} & диалоги & Универсальное модальное окно \#modal \\ \hline
+	\codeid{ensureToastHost} & уведомления & Создание контейнера для всплывающих сообщений \\ \hline
+	\codeid{closeAlert} / \codeid{showAlert} & диалоги & Закрытие и отображение информационного сообщения \\ \hline
+	\codeid{showConfirm} & диалоги & Модальное подтверждение с обработчиком положительного ответа \\ \hline
+	\codeid{updateMuscleStats} & аналитика & Обновление статистики нагрузки по мышечным группам \\ \hline
+	\codeid{togglePlansVisibility} / \codeid{renderPlansVisibility} & UI & Сворачивание и разворачивание списка планов \\ \hline
+	\codeid{renderPlanSelect} & UI & Обновление выпадающего списка доступных планов \\ \hline
+	\codeid{renderMuscleGroups} & каталог & Отрисовка групп мышц каталога упражнений \\ \hline
+	\codeid{renderExercisesForMuscleGroup} & каталог & Отрисовка упражнений выбранной мышечной группы \\ \hline
+	\codeid{renderDays} & планы & Отрисовка списка дней выбранного плана \\ \hline
+	\codeid{renderCurrentDay} & планы & Отрисовка упражнений выбранного дня \\ \hline
+	\codeid{switchDayWithSkeleton} & UI & Переключение дня с кратким состоянием загрузки \\ \hline
+	\codeid{renderSummary} & аналитика & Обновление сводки по плану и тренировкам \\ \hline
+	\codeid{editDay} & планы & Открытие формы редактирования тренировочного дня \\ \hline
+	\codeid{openLogExercise} & выполнение & Окно фиксации подходов конкретного упражнения \\ \hline
+	\codeid{openStartWorkoutModal} & выполнение & Запуск режима тренировки по выбранному дню \\ \hline
+	\codeid{showChartsForExercise} & графики & Построение графика прогресса по упражнению \\ \hline
+	\codeid{renderMuscleStats} & аналитика & Визуализация распределения нагрузки по мышцам \\ \hline
+	\codeid{renderCalendar} & история & Отрисовка календаря выполненных тренировок \\ \hline
+	\codeid{showWorkoutsForDate} & история & Показ тренировок за выбранную дату \\ \hline
+	\codeid{openAddWorkoutForDate} & история & Добавление записи тренировки на выбранную дату \\ \hline
+	\codeid{formatDate} & даты & Форматирование даты для отображения пользователю \\ \hline
+	\codeid{deleteSingleExercise} & журнал & Удаление отдельного упражнения из записи тренировки \\ \hline
+	\codeid{editWorkout} & журнал & Редактирование тренировки за дату \\ \hline
+	\codeid{deleteWorkout} & журнал & Удаление тренировки из истории \\ \hline
+	\codeid{renderProgressionRecommendations} & аналитика & Рекомендации по прогрессии нагрузки на основе истории \\ \hline
+	\codeid{setupTabs} & навигация & Настройка переключения вкладок приложения \\ \hline
+	\codeid{restoreRightPanel} & UI & Возврат правой панели к основному состоянию \\ \hline
+	\codeid{showProgramSelection} & шаблоны & Окно выбора готовой тренировочной программы \\ \hline
+	\codeid{applyTrainingProgram} & шаблоны & Применение выбранного шаблона к текущему плану \\ \hline
+	\codeid{renderLeftPanel} & UI & Обновление левой панели со списком планов и дней \\ \hline
+	\codeid{renderAll} & UI & Полная перерисовка состояния вкладки <<Тренировки>> \\ \hline
+	\codeid{toggleCatalog} & каталог & Сворачивание и разворачивание каталога упражнений \\ \hline
+\end{xltabular}
+
+\subsection{Модуль profile.module.js}
+
+Объект AppModules.profile реализует вкладку профиля: форма личных данных, загрузка фотографии, списки подписок, переключение светлой и тёмной темы. Все методы модуля представлены в таблице~\ref{tab:rp-profile}.
+
+\begin{xltabular}{\textwidth}{|P{4.4cm}|P{3.4cm}|X|}
+	\caption{Методы AppModules.profile\label{tab:rp-profile}}\\
+	\hline \centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\endfirsthead
+	\continuecaption{Продолжение таблицы \ref{tab:rp-profile}}
+	\centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\finishhead
+	\codeid{escapeHtml} & \codeid{value} & Экранирование текста при вставке в DOM \\ \hline
+	\codeid{ensureStyles} & Аргументов нет & Добавление CSS-правил профиля в документ \\ \hline
+	\codeid{readVisuals} & Аргументов нет & Чтение сохранённых визуальных настроек профилей \\ \hline
+	\codeid{saveVisualForUser} & \codeid{username, payload} & Сохранение фото и визуальных настроек для пользователя \\ \hline
+	\codeid{getVisualForUser} & \codeid{username} & Получение сохранённого изображения профиля \\ \hline
+	\codeid{getInputValue} & \codeid{root, id} & Чтение значения поля формы профиля \\ \hline
+	\codeid{saveProfile} & \codeid{root} & Отправка изменённых данных профиля через AppAuth.updateProfile \\ \hline
+	\codeid{render} & \codeid{mountId} & Построение формы профиля в контейнере profileModuleMount \\ \hline
+	\codeid{bindProfileChrome} & \codeid{root} & Обработчики темы, кнопок сохранения и загрузки фото \\ \hline
+\end{xltabular}
+
+\subsection{Модуль nutrition.module.js}
+
+Модуль питания отвечает за дневник приёмов пищи, пользовательские продукты, расчёт КБЖУ, календарный выбор даты и настройку пользовательских приёмов пищи. Все методы приведены в таблице~\ref{tab:rp-nutrition}.
+
+\begin{xltabular}{\textwidth}{|P{4.4cm}|P{3.4cm}|X|}
+	\caption{Методы AppModules.nutrition\label{tab:rp-nutrition}}\\
+	\hline \centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\endfirsthead
+	\continuecaption{Продолжение таблицы \ref{tab:rp-nutrition}}
+	\centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\finishhead
+	\codeid{ensureStyles} & Аргументов нет & Добавление CSS-правил раздела питания \\ \hline
+	\codeid{readJson} & \codeid{key, fallback} & Безопасное чтение JSON из localStorage \\ \hline
+	\codeid{saveJson} & \codeid{key, value} & Сохранение структуры данных в localStorage \\ \hline
+	\codeid{notify} & \codeid{message} & Отображение короткого сообщения пользователю \\ \hline
+	\codeid{getCustomMeals} / \codeid{setCustomMeals} & Аргументов нет / \codeid{list} & Чтение и сохранение пользовательских приёмов пищи \\ \hline
+	\codeid{getMealOrderList} & Аргументов нет & Формирование порядка отображения приёмов пищи \\ \hline
+	\codeid{isMealCollapsed} / \codeid{toggleMealFold} & \codeid{mealId} & Проверка и переключение свернутого состояния блока приёма пищи \\ \hline
+	\codeid{addCustomMealSlot} & \codeid{label} & Создание пользовательского приёма пищи \\ \hline
+	\codeid{removeCustomMealSlot} & \codeid{mealId, dateKey} & Удаление пользовательского приёма пищи и связанных записей \\ \hline
+	\codeid{todayKey} & Аргументов нет & Получение ключа текущей даты \\ \hline
+	\codeid{formatMonthTitleRu} & \codeid{year, monthIndex} & Название месяца для календаря \\ \hline
+	\codeid{getSelectedDate} / \codeid{setSelectedDate} & Аргументов нет / \codeid{dateKey} & Чтение и сохранение выбранной даты \\ \hline
+	\codeid{getMonthCursor} / \codeid{setMonthCursor} & Аргументов нет / \codeid{ym} & Чтение и сохранение отображаемого месяца календаря \\ \hline
+	\codeid{formatDateRu} & \codeid{dateKey} & Преобразование даты к русскому формату \\ \hline
+	\codeid{dayKcalTotal} & \codeid{dateKey} & Подсчёт калорий за конкретный день \\ \hline
+	\codeid{getBaseProducts} & Аргументов нет & Получение базового справочника продуктов \\ \hline
+	\codeid{searchProducts} & \codeid{query} & Поиск продуктов по названию \\ \hline
+	\codeid{getProducts} & Аргументов нет & Объединение базовых и пользовательских продуктов \\ \hline
+	\codeid{getEntries} & Аргументов нет & Чтение всех записей дневника питания \\ \hline
+	\codeid{clearAllEntries} & Аргументов нет & Очистка дневника питания \\ \hline
+	\codeid{addEntry} / \codeid{removeEntry} & \codeid{entry} / \codeid{id} & Добавление и удаление записи о продукте \\ \hline
+	\codeid{removeMealEntries} & \codeid{dateKey, meal} & Удаление всех записей выбранного приёма пищи \\ \hline
+	\codeid{getDayEntries} & \codeid{dateKey} & Загрузка записей питания за выбранный день \\ \hline
+	\codeid{calcTotals} & \codeid{entries} & Расчёт калорий, белков, жиров и углеводов \\ \hline
+	\codeid{escapeHtml} & \codeid{s} & Экранирование пользовательских строк \\ \hline
+	\codeid{renderCalendar} & \codeid{root, selectedDate} & Отрисовка календаря питания \\ \hline
+	\codeid{renderChart} & \codeid{root, totals} & Визуализация структуры КБЖУ \\ \hline
+	\codeid{closeNutritionModals} & \codeid{root} & Закрытие модальных окон раздела \\ \hline
+	\codeid{openMealSlotModal} & \codeid{root} & Окно добавления пользовательского приёма пищи \\ \hline
+	\codeid{openCustomProductModal} & \codeid{root} & Окно добавления пользовательского продукта \\ \hline
+	\codeid{bindEvents} & \codeid{root, selectedDate} & Обработчики календаря, поиска, добавления и удаления записей \\ \hline
+	\codeid{renderMealSections} & \codeid{entries} & Отрисовка блоков приёмов пищи и их содержимого \\ \hline
+	\codeid{render} & \codeid{mountId} & Отрисовка дневника, календаря и панели макронутриентов \\ \hline
+\end{xltabular}
+
+\subsection{Модуль social.module.js}
+
+Социальный модуль загружает посты через /api/social/posts, отображает ленту, комментарии, лайки, реакции, подписки и поиск по публикациям. Все методы модуля представлены в таблице~\ref{tab:rp-social}.
+
+\begin{xltabular}{\textwidth}{|P{4.4cm}|P{3.4cm}|X|}
+	\caption{Методы AppModules.social\label{tab:rp-social}}\\
+	\hline \centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\endfirsthead
+	\continuecaption{Продолжение таблицы \ref{tab:rp-social}}
+	\centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\finishhead
+	\codeid{uid} & Аргументов нет & Генерация локального идентификатора записи \\ \hline
+	\codeid{getToken} & Аргументов нет & Получение JWT текущего пользователя \\ \hline
+	\codeid{api} & \codeid{path, options} & HTTP-запрос к серверному API социальной ленты \\ \hline
+	\codeid{escapeHtml} & \codeid{value} & Экранирование пользовательского текста \\ \hline
+	\codeid{getSeedPosts} & Аргументов нет & Стартовый набор публикаций при отсутствии данных \\ \hline
+	\codeid{loadPostsRemote} & Аргументов нет & GET /api/social/posts, нормализация данных \\ \hline
+	\codeid{migrateFollowEdgesIfNeeded} & Аргументов нет & Перенос старого формата подписок в формат связей \\ \hline
+	\codeid{getFollowEdges} / \codeid{setFollowEdges} & Аргументов нет / \codeid{list} & Чтение и сохранение связей подписок \\ \hline
+	\codeid{getFollowersOf} & \codeid{username} & Получение списка подписчиков пользователя \\ \hline
+	\codeid{loadPosts} & Аргументов нет & Загрузка публикаций из локального источника или демоданных \\ \hline
+	\codeid{formatDate} & \codeid{ts} & Форматирование времени публикации \\ \hline
+	\codeid{normalizePosts} & \codeid{posts} & Приведение постов и комментариев к единому формату \\ \hline
+	\codeid{normalizeReactions} & \codeid{rawReactions, likes} & Нормализация структуры реакций \\ \hline
+	\codeid{countUserReactionKinds} & \codeid{post, userName} & Подсчёт типов реакций пользователя на пост \\ \hline
+	\codeid{trimReactionsSoUserHasMaxThree} & \codeid{post, userName, incomingKind} & Ограничение числа реакций одного пользователя \\ \hline
+	\codeid{getInitials} & \codeid{name} & Получение инициалов для аватара \\ \hline
+	\codeid{getAvatarTone} & \codeid{name} & Выбор цветового тона аватара по имени \\ \hline
+	\codeid{getAvatarPhoto} & \codeid{name, remoteUrl} & Получение фотографии автора из профиля или URL \\ \hline
+	\codeid{renderAvatar} & \codeid{name, sizeClass, remoteUrl} & Аватар автора в карточке поста \\ \hline
+	\codeid{ensureStyles} & Аргументов нет & Добавление CSS-правил социальной ленты \\ \hline
+	\codeid{getFilteredPosts} & \codeid{posts} & Поиск и сортировка ленты по параметрам UI \\ \hline
+	\codeid{getAuthorStats} & \codeid{posts} & Расчёт активности авторов для бейджей \\ \hline
+	\codeid{getFollowedUsers} / \codeid{setFollowedUsers} & Аргументов нет / \codeid{list} & Чтение и сохранение списка подписок текущего пользователя \\ \hline
+	\codeid{getPeople} & \codeid{posts} & Получение списка участников ленты \\ \hline
+	\codeid{getAuthorBadge} & \codeid{author, statsMap} & Текстовый бейдж автора по его активности \\ \hline
+	\codeid{renderPeopleList} & \codeid{root, posts} & Отрисовка списка участников и кнопок подписки \\ \hline
+	\codeid{renderFeed} & \codeid{root, posts} & Отрисовка карточек публикаций, комментариев и реакций \\ \hline
+	\codeid{bindEvents} & \codeid{root} & Обработчики публикации, лайков, реакций, комментариев, поиска и подписок \\ \hline
+	\codeid{ensureToastContainer} & Аргументов нет & Создание контейнера уведомлений социальной ленты \\ \hline
+	\codeid{showToast} & \codeid{message} & Отображение всплывающего сообщения \\ \hline
+	\codeid{render} & \codeid{mountId} & Построение ленты, формы публикации и панели поиска \\ \hline
+\end{xltabular}
+
+\subsection{Модуль psychology.module.js}
+
+Модуль поддержки загружает советы из mental-advice.json, отображает <<Совет дня>>, дыхательную практику, форму чекина, календарь настроения и рекомендации по восстановлению. Все методы приведены в таблице~\ref{tab:rp-psychology}.
+
+\begin{xltabular}{\textwidth}{|P{4.4cm}|P{3.4cm}|X|}
+	\caption{Методы AppModules.psychology\label{tab:rp-psychology}}\\
+	\hline \centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\endfirsthead
+	\continuecaption{Продолжение таблицы \ref{tab:rp-psychology}}
+	\centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\finishhead
+	\codeid{escapeHtml} & \codeid{value} & Экранирование пользовательского текста \\ \hline
+	\codeid{todayKey} & Аргументов нет & Получение ключа текущей даты \\ \hline
+	\codeid{dateKeyFromLocalDate} & \codeid{d} & Преобразование объекта Date в локальный ключ даты \\ \hline
+	\codeid{loadAdvicePool} & Аргументов нет & Загрузка JSON-справочника советов \\ \hline
+	\codeid{resolveAdviceForToday} & Аргументов нет & Выбор стабильного совета дня \\ \hline
+	\codeid{rotateAdvice} & \codeid{root} & Обновление текста совета в интерфейсе \\ \hline
+	\codeid{loadCheckins} / \codeid{saveCheckins} & Аргументов нет / \codeid{checkins} & Чтение и сохранение отметок самочувствия \\ \hline
+	\codeid{notify} & \codeid{message} & Короткое уведомление пользователя \\ \hline
+	\codeid{getWeeklyStats} & Аргументов нет & Расчёт статистики чекинов за неделю \\ \hline
+	\codeid{hasCheckinToday} & Аргументов нет & Проверка наличия отметки за текущий день \\ \hline
+	\codeid{getCheckinStreak} & Аргументов нет & Подсчёт серии дней с отметками для профиля \\ \hline
+	\codeid{saveCheckin} & \codeid{physicalState, emotionalState, noteText} & Сохранение чекина и начисление опыта аватару \\ \hline
+	\codeid{getConsecutiveRiskDays} & Аргументов нет & Подсчёт серии дней с признаками усталости \\ \hline
+	\codeid{detectPlannedTrainingType} & Аргументов нет & Определение ближайшей запланированной тренировки \\ \hline
+	\codeid{buildActionRequired} & Аргументов нет & Формирование рекомендации при риске перегрузки \\ \hline
+	\codeid{replaceWorkoutWithRecovery} & Аргументов нет & Замена тренировки восстановительным вариантом \\ \hline
+	\codeid{ensureStyles} & Аргументов нет & Добавление CSS-правил раздела поддержки \\ \hline
+	\codeid{renderActionCard} & \codeid{root} & Отрисовка карточки рекомендуемого действия \\ \hline
+	\codeid{setupCalendarDrawer} & \codeid{root} & Настройка раскрывающегося календаря чекинов \\ \hline
+	\codeid{renderWeeklyStats} & \codeid{root} & Отрисовка недельной статистики самочувствия \\ \hline
+	\codeid{setupBreathing} & \codeid{root} & Настройка дыхательной практики и таймера \\ \hline
+	\codeid{setupOnboarding} & \codeid{root} & Первичная подсказка при первом входе в раздел \\ \hline
+	\codeid{setupCheckin} & \codeid{root} & Обработчики формы отметки физического и эмоционального состояния \\ \hline
+	\codeid{setupAdvice} & \codeid{root} & Загрузка и отображение блока <<Совет дня>> \\ \hline
+	\codeid{renderCheckinCalendar} & \codeid{root} & Календарь состояний по сохранённым чекинам \\ \hline
+	\codeid{render} & \codeid{mountId} & Отрисовка раздела <<Поддержка>> \\ \hline
+\end{xltabular}
+
+\subsection{Модуль avatar.module.js}
+
+Модуль аватара визуализирует персонажа, рассчитывает уровень и опыт по активности в тренировках, питании и чекинах, а также отображает панель прогресса. Все методы представлены в таблице~\ref{tab:rp-avatar}.
+
+\begin{xltabular}{\textwidth}{|P{4.4cm}|P{3.4cm}|X|}
+	\caption{Методы AppModules.avatar\label{tab:rp-avatar}}\\
+	\hline \centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\endfirsthead
+	\continuecaption{Продолжение таблицы \ref{tab:rp-avatar}}
+	\centrow Метод & \centrow Аргументы & \centrow Описание \\ \hline
+	\finishhead
+	\codeid{escapeHtml} & \codeid{value} & Экранирование текстовых значений \\ \hline
+	\codeid{readJson} & \codeid{key, fallback} & Безопасное чтение JSON из localStorage \\ \hline
+	\codeid{loadUi} / \codeid{saveUi} & Аргументов нет / \codeid{next} & Чтение и сохранение состояния интерфейса аватара \\ \hline
+	\codeid{todayKey} & Аргументов нет & Ключ текущей даты \\ \hline
+	\codeid{dateInLastDays} & \codeid{dateStr, days} & Проверка попадания даты в последний период \\ \hline
+	\codeid{countTodayActivity} & \codeid{todayKey} & Подсчёт активности пользователя за текущий день \\ \hline
+	\codeid{computeXpFromActivity} & \codeid{entries, mental, workouts} & Расчёт опыта на основе питания, чекинов и тренировок \\ \hline
+	\codeid{getProfilePhotoDataUrl} & Аргументов нет & Получение фотографии профиля для аватара \\ \hline
+	\codeid{getToolbarInitials} & Аргументов нет & Получение инициалов пользователя для панели \\ \hline
+	\codeid{collectMetrics} & Аргументов нет & Сбор данных из тренировок, питания и чекинов \\ \hline
+	\codeid{stageFromLevel} & \codeid{level} & Определение стадии персонажа по уровню \\ \hline
+	\codeid{getAvatarState} & Аргументов нет & Уровень, стадия SVG, прогресс до следующего уровня \\ \hline
+	\codeid{ensureStyles} & Аргументов нет & Добавление CSS-правил аватара \\ \hline
+	\codeid{renderCharacterSvg} & \codeid{state} & Генерация SVG-персонажа в зависимости от уровня \\ \hline
+	\codeid{ensureToastHost} & Аргументов нет & Создание контейнера уведомлений об опыте \\ \hline
+	\codeid{showXpToast} & \codeid{message, amount} & Всплывающее уведомление о полученном опыте \\ \hline
+	\codeid{grantXp} & \codeid{kind, amount, meta} & Начисление опыта с учётом суточных лимитов \\ \hline
+	\codeid{render} & \codeid{mountId} & Миниатюра персонажа в шапке (virtualAvatarMount) \\ \hline
+	\codeid{renderPanel} & \codeid{mountId} & Полноэкранная вкладка <<Аватар>> с уровнем и метриками \\ \hline
+\end{xltabular}
+
+\subsection{Сборка и запуск клиентского приложения}
+
+Клиентская часть не требует отдельной сборки через bundler: браузер загружает HTML, CSS и ES5-модули напрямую. Для работы с REST API и корректной раздачи статики приложение запускается вместе с серверной частью Node.js (каталог backend репозитория fitness-diplom): сервер отдаёт файлы из каталога ДИПЛОМ 2 и перенаправляет корневой GET на 213223232.html.
+
+Порядок проверки клиента на рабочей машине:
+\begin{enumerate}
+	\item Запустить серверную подсистему (npm start в backend).
+	\item Открыть в браузере адрес, указанный сервером (обычно http://localhost:порт).
+	\item Убедиться, что отображается экран входа (authRoot).
+	\item После регистрации или входа проверить переключение вкладок и сохранение данных после перезагрузки страницы.
+\end{enumerate}
+
+\subsection{Системное тестирование клиентского приложения}
+
+Системное тестирование выполнялось вручную в браузере Google Chrome и Microsoft Edge на сценариях технического задания. Ниже приведены скриншоты ключевых экранов клиентского приложения.
+
+На рисунке~\ref{fig:rp-screen-01} должен быть представлен экран авторизации.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.85\linewidth]{rp_screen_01.png}
+	\caption{Экран авторизации и регистрации}
+	\label{fig:rp-screen-01}
+\end{figure}
+
+На рисунке~\ref{fig:rp-screen-02} представлена вкладка <<Тренировки>> после успешного входа.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{rp_screen_02.png}
+	\caption{Главное окно: модуль тренировок}
+	\label{fig:rp-screen-02}
+\end{figure}
+
+На рисунке~\ref{fig:rp-screen-03} показано создание или редактирование плана и применение шаблона программы.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{rp_screen_03.png}
+	\caption{Создание тренировочного плана и шаблоны программ}
+	\label{fig:rp-screen-03}
+\end{figure}
+
+На рисунке~\ref{fig:rp-screen-04} представлен режим выполнения тренировки и фиксация подходов.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{rp_screen_04.png}
+	\caption{Выполнение тренировки по плану}
+	\label{fig:rp-screen-04}
+\end{figure}
+
+На рисунке~\ref{fig:rp-screen-05} приведены графики прогресса на вкладке <<Прогресс>>.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{rp_screen_05.png}
+	\caption{Визуализация прогресса и аналитика нагрузки}
+	\label{fig:rp-screen-05}
+\end{figure}
+
+На рисунке~\ref{fig:rp-screen-06} показан раздел <<Питание>>.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{rp_screen_06.png}
+	\caption{Дневник питания и показатели КБЖУ}
+	\label{fig:rp-screen-06}
+\end{figure}
+
+На рисунке~\ref{fig:rp-screen-07} представлена социальная лента.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{rp_screen_07.png}
+	\caption{Социальная лента и взаимодействие с постами}
+	\label{fig:rp-screen-07}
+\end{figure}
+
+На рисунке~\ref{fig:rp-screen-08} показан раздел <<Аватар>> с уровнем персонажа и шкалой опыта.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{rp_screen_08.png}
+	\caption{Модуль цифрового аватара}
+	\label{fig:rp-screen-08}
+\end{figure}
+
+На рисунке~\ref{fig:rp-screen-09} представлен профиль пользователя.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.92\linewidth]{rp_screen_09.png}
+	\caption{Профиль пользователя}
+	\label{fig:rp-screen-09}
+\end{figure}
+
+На рисунке~\ref{fig:rp-screen-10} показаны модальные окна подтверждения и уведомления.
+
+\begin{figure}[H]
+	\centering
+	\includegraphics[width=0.85\linewidth]{rp_screen_10.png}
+	\caption{Модальные диалоги приложения}
+	\label{fig:rp-screen-10}
+\end{figure}
+
+По результатам системного тестирования подтверждено выполнение основных сценариев: регистрация и вход, работа с планами и журналом тренировок, отображение графиков, ведение дневника питания, публикации в социальной ленте, чекины в разделе поддержки, отображение аватара и редактирование профиля. Данные пользователя сохраняются в localStorage и при доступном сервере синхронизируются через API, что позволяет восстановить состояние клиента после перезагрузки страницы.
